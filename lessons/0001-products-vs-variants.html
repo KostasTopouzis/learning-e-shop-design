@@ -158,6 +158,7 @@
 
 <h2>Your turn · The Edit</h2>
 <p>Open your repo and write a migration (a plain <code>.sql</code> file is fine, or Prisma/Drizzle if you've chosen one) with the five tables above. Before you peek at the answer, decide:</p>
+<p class="note">A <strong>migration</strong> is a versioned, committed file that moves the database schema from one state to the next (e.g. <code>001_create_catalog.sql</code>). You apply migrations in order, the same way on your laptop and in production, so every database ends up with the same schema. See Prisma's <a href="https://www.prisma.io/docs/orm/prisma-migrate/understanding-prisma-migrate/mental-model">Understanding Migrations</a>.</p>
 <ol class="steps">
   <li>Which columns must be <code>unique</code>? (Think URLs and warehouse codes.)</li>
   <li>Which columns need a <code>check</code> constraint so bad data can't get in?</li>
