@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Products vs Variants</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/components.js" defer></script>
+</head>
+<body>
+<main>
+
+<p class="kicker">Lesson 0001 · Catalog data model</p>
+<h1>What do you actually sell?</h1>
+<p class="subtitle">Products, options and variants: the first tables in The Edit's database.</p>
+<div class="meta"><span>≈ 15 min</span><span>Prereq: basic SQL</span><span>Ref: <a href="../reference/catalog-data-model.html">Catalog data model</a></span></div>
+
+<div class="goal">
+  <p class="label">Your win today</p>
+  <p>Write the Postgres tables for The Edit's catalog, and be able to explain in one sentence why the cart points at a <em>variant</em> and not a <em>product</em>.</p>
+</div>
+
+<h2>The problem</h2>
+<p>A shopper on The Edit opens the <em>Linen Shirt</em> page, picks <strong>Navy</strong> and <strong>M</strong>, and clicks <em>Add to bag</em>. Your <code>products</code> table has one row: "Linen Shirt". What does the cart save?</p>
+<p>If it saves the product ID, you've lost the colour and the size. And you can't answer the questions the business will ask next: <em>Is Navy/M in stock? Does XL cost more? Which barcode does the warehouse scan?</em> Each of those has a different answer for each colour/size combination. The "Linen Shirt" isn't one thing you sell. It's a family of things you sell.</p>
+
+<h2>Three concepts</h2>
+<p>Every serious commerce platform splits the catalog the same way. Shopify's developer docs put it like this:<sup class="cite"><a href="#s1">[1]</a></sup></p>
+<table>
+  <thead><tr><th>Concept</th><th>What it is</th><th>The Edit example</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Product</strong></td><td>"The container for all product information (title, description, vendor)."</td><td>Linen Shirt</td></tr>
+    <tr><td><strong>Option</strong></td><td>"Characteristics customers choose from, like color or size." Each option has a name and a list of values.</td><td>Color: Navy, White, Sand<br>Size: S, M, L, XL</td></tr>
+    <tr><td><strong>Variant</strong></td><td>"Specific purchasable SKUs representing combinations of option values."</td><td>Linen Shirt / Navy / M</td></tr>
+  </tbody>
+</table>
+
+<p>The rule that matters most for your database: <strong>money and stock live on the variant</strong>. Shopify: "each variant has its own price, inventory, and barcode."<sup class="cite"><a href="#s1">[1]</a></sup> Saleor says it more strongly:</p>
+<blockquote>"Checkout and orders can only contain variants." … "Prices and stock can only be assigned at a variant level."
+<cite>Saleor, Product Overview <a href="#s2">[2]</a></cite></blockquote>
+
+<p>So the product holds the <em>shared description</em> (what's on the page) and the variant is the <em>unit of sale</em> (what goes in the bag, gets charged, and leaves the warehouse). A <strong>SKU</strong> (stock-keeping unit) is the business's ID for one variant, e.g. <code>LS-NAVY-M</code>.</p>
+
+<div class="note">
+  <p><strong>Products with no options:</strong> a tote bag still gets <em>one</em> variant. Shopify creates a "standalone" default variant automatically for this reason.<sup class="cite"><a href="#s3">[3]</a></sup> Your cart, orders and inventory then only ever deal with one kind of thing, so there's no special case.</p>
+</div>
+
+<h2>As tables</h2>
+<figure>
+<svg viewBox="0 0 640 300" role="img" aria-label="Entity diagram: products has many product_options, which have many product_option_values. products has many product_variants. variant_option_values joins product_variants to product_option_values.">
+  <style>
+    .bx { fill: var(--bg); stroke: var(--fg); stroke-width: 1.2; }
+    .bx.v { stroke: var(--variant); stroke-width: 2; }
+    .hd { font: 600 13px var(--mono); fill: var(--fg); }
+    .hd.v { fill: var(--variant); }
+    .col { font: 11px var(--mono); fill: var(--muted); }
+    .ln { stroke: var(--muted); stroke-width: 1.2; fill: none; }
+    .card { font: 10px var(--mono); fill: var(--accent); }
+  </style>
+  <!-- products -->
+  <rect class="bx" x="10" y="10" width="190" height="96" rx="4"/>
+  <text class="hd" x="22" y="32">products</text>
+  <text class="col" x="22" y="52">id</text><text class="col" x="22" y="68">handle  (url slug)</text><text class="col" x="22" y="84">title, description</text>
+  <!-- options -->
+  <rect class="bx" x="225" y="10" width="190" height="96" rx="4"/>
+  <text class="hd" x="237" y="32">product_options</text>
+  <text class="col" x="237" y="52">id</text><text class="col" x="237" y="68">product_id → products</text><text class="col" x="237" y="84">name   'Color'</text>
+  <!-- option values -->
+  <rect class="bx" x="440" y="10" width="190" height="96" rx="4"/>
+  <text class="hd" x="452" y="32">product_option_values</text>
+  <text class="col" x="452" y="52">id</text><text class="col" x="452" y="68">option_id → options</text><text class="col" x="452" y="84">value  'Navy'</text>
+  <!-- variants -->
+  <rect class="bx v" x="10" y="180" width="190" height="112" rx="4"/>
+  <text class="hd v" x="22" y="202">product_variants</text>
+  <text class="col" x="22" y="222">id</text><text class="col" x="22" y="238">product_id → products</text><text class="col" x="22" y="254">sku  'LS-NAVY-M'</text><text class="col" x="22" y="270">price_cents, stock</text>
+  <!-- join -->
+  <rect class="bx" x="440" y="180" width="190" height="96" rx="4"/>
+  <text class="hd" x="452" y="202">variant_option_values</text>
+  <text class="col" x="452" y="222">variant_id</text><text class="col" x="452" y="238">option_value_id</text><text class="col" x="452" y="254">PK (both)</text>
+  <!-- lines -->
+  <path class="ln" d="M200 58 H225"/><text class="card" x="203" y="52">1</text><text class="card" x="216" y="52">*</text>
+  <path class="ln" d="M415 58 H440"/><text class="card" x="418" y="52">1</text><text class="card" x="431" y="52">*</text>
+  <path class="ln" d="M105 106 V180"/><text class="card" x="111" y="120">1</text><text class="card" x="111" y="175">*</text>
+  <path class="ln" d="M200 228 H440"/><text class="card" x="205" y="222">1</text><text class="card" x="430" y="222">*</text>
+  <path class="ln" d="M535 106 V180"/><text class="card" x="541" y="120">1</text><text class="card" x="541" y="175">*</text>
+</svg>
+<figcaption>The variant (outlined) is the unit of sale. The join table records which option values make up each variant: Navy + M.</figcaption>
+</figure>
+
+<p>This is the same shape as the open-source engines. In Medusa's docs, options are a product's available attributes and variants are the salable combinations of them. They also forbid two variants with the same option values.<sup class="cite"><a href="#s4">[4]</a></sup></p>
+
+<h2>Practice 1 · Where does each field live?</h2>
+<p>Here's every field The Edit's Linen Shirt needs. Click a chip to send it to <span style="color:var(--product)">Product</span> or <span style="color:var(--variant)">Variant</span>, then press <em>Check</em>. Ask yourself: <em>could this value be different for Navy/M and White/L?</em></p>
+
+<div class="sorter" data-a="Product" data-b="Variant">
+  <p class="instructions">Click once for Product, click again for Variant.</p>
+  <div class="chips">
+    <button class="chip" data-bucket="b" data-why="Each combination needs its own scannable code. Shopify lists barcode as a per-variant field.">barcode</button>
+    <button class="chip" data-bucket="a" data-why="One page, one description. It's shared by every colour and size.">description</button>
+    <button class="chip" data-bucket="b" data-why="XL can cost more than S. Saleor only allows prices at variant level.">price</button>
+    <button class="chip" data-bucket="a" data-why="The URL /products/linen-shirt points to the family, not to one size.">handle (URL slug)</button>
+    <button class="chip" data-bucket="b" data-why="Navy/M can sell out while White/L is still in stock.">stock quantity</button>
+    <button class="chip" data-bucket="a" data-why="The material is the same for every option, like Saleor's Material example. It's a shared, product-level attribute.">material (100% linen)</button>
+    <button class="chip" data-bucket="b" data-why="A SKU identifies one variant, by definition.">sku</button>
+    <button class="chip" data-bucket="a" data-why="The brand doesn't change with size.">brand</button>
+    <button class="chip" data-bucket="b" data-why="An XL weighs more than an S, and shipping costs depend on it. Medusa stores weight on ProductVariant.">weight</button>
+    <button class="chip" data-bucket="a" data-why="One set of care instructions for the whole shirt.">care instructions</button>
+  </div>
+</div>
+
+<h2>Practice 2 · Recall</h2>
+<p>Answer from memory. Don't scroll up.</p>
+<p class="score" data-quiz-score></p>
+
+<div class="quiz" data-answer="2">
+  <p class="q">1. A shopper adds "Linen Shirt, Navy / M" to the bag. The cart line should store…</p>
+  <div class="opts">
+    <button class="opt">The product's row ID</button>
+    <button class="opt">The color option's ID</button>
+    <button class="opt">The variant's row ID</button>
+    <button class="opt">The size value's ID</button>
+  </div>
+  <p class="explain">The variant ID pins down the colour, size, price and stock in one reference. "Checkout and orders can only contain variants."</p>
+</div>
+
+<div class="quiz" data-answer="1">
+  <p class="q">2. The Linen Shirt has 3 colours and 4 sizes. At most how many variants can it have?</p>
+  <div class="opts">
+    <button class="opt">Seven</button>
+    <button class="opt">Twelve</button>
+    <button class="opt">Four</button>
+    <button class="opt">Three</button>
+  </div>
+  <p class="explain">Variants are combinations: 3 × 4 = 12. Each new option <em>multiplies</em> the count. That's why Shopify has to publish a hard cap (2,048 per product).<sup class="cite"><a href="#s3">[3]</a></sup> You can also leave out combinations you don't make. Then you have fewer variants, not more.</p>
+</div>
+
+<div class="quiz" data-answer="3">
+  <p class="q">3. Why do price and stock live on the variant?</p>
+  <div class="opts">
+    <button class="opt">It makes product rows smaller</button>
+    <button class="opt">Postgres cannot index product columns</button>
+    <button class="opt">Customers only ever search variants</button>
+    <button class="opt">Each combination can differ independently</button>
+  </div>
+  <p class="explain">Navy/M can sell out on its own and XL can cost more on its own. A value that can differ per combination belongs to the combination.</p>
+</div>
+
+<div class="quiz" data-answer="0">
+  <p class="q">4. A tote bag comes in one style only. How many variants should it have?</p>
+  <div class="opts">
+    <button class="opt">Exactly one, a default variant</button>
+    <button class="opt">Zero; sell the product directly</button>
+    <button class="opt">One for every product image</button>
+    <button class="opt">As many as stock units</button>
+  </div>
+  <p class="explain">One default variant keeps carts, orders and inventory uniform. They always reference a variant, with no special case. Shopify auto-creates this "standalone" variant.</p>
+</div>
+
+<h2>Your turn · The Edit</h2>
+<p>Open your repo and write a migration (a plain <code>.sql</code> file is fine, or Prisma/Drizzle if you've chosen one) with the five tables above. Before you peek at the answer, decide:</p>
+<ol class="steps">
+  <li>Which columns must be <code>unique</code>? (Think URLs and warehouse codes.)</li>
+  <li>Which columns need a <code>check</code> constraint so bad data can't get in?</li>
+  <li>What happens to variants when a product is deleted?</li>
+</ol>
+
+<details>
+  <summary>Compare with a reference version</summary>
+<pre><code>create table products (
+  id          bigint generated always as identity primary key,
+  handle      text not null unique,          <span class="c">-- /products/linen-shirt</span>
+  title       text not null,
+  description text,
+  brand       text,
+  created_at  timestamptz not null default now()
+);
+
+create table product_options (
+  id         bigint generated always as identity primary key,
+  product_id bigint not null references products(id) on delete cascade,
+  name       text not null,                  <span class="c">-- 'Color', 'Size'</span>
+  position   int  not null default 0,        <span class="c">-- display order</span>
+  unique (product_id, name)
+);
+
+create table product_option_values (
+  id        bigint generated always as identity primary key,
+  option_id bigint not null references product_options(id) on delete cascade,
+  value     text not null,                   <span class="c">-- 'Navy', 'M'</span>
+  unique (option_id, value)
+);
+
+create table product_variants (
+  id          bigint generated always as identity primary key,
+  product_id  bigint not null references products(id) on delete cascade,
+  sku         text not null unique,          <span class="c">-- 'LS-NAVY-M'</span>
+  price_cents integer not null check (price_cents >= 0),
+  stock       integer not null default 0 check (stock >= 0)
+);
+
+create table variant_option_values (
+  variant_id      bigint not null references product_variants(id) on delete cascade,
+  option_value_id bigint not null references product_option_values(id) on delete cascade,
+  primary key (variant_id, option_value_id)
+);</code></pre>
+  <p><strong>Two choices here we'll revisit</strong> (they make good interview talking points):</p>
+  <ul>
+    <li><code>price_cents integer</code>: money stored as whole cents, never as a float. This gets its own lesson.</li>
+    <li><code>stock</code> as a column on the variant is a starting point. Real systems move it to a separate inventory table, which Medusa links from each variant.<sup class="cite"><a href="#s4">[4]</a></sup> That's what makes multiple warehouses and reservations possible.</li>
+    <li><code>on delete cascade</code> on products is fine while you prototype. In a live shop you'd rarely hard-delete a product that appears in past orders. You'd archive it instead. More on that in the orders lesson.</li>
+  </ul>
+  <p>See the constraint syntax in the <a href="https://www.postgresql.org/docs/current/ddl-constraints.html">PostgreSQL docs</a>.</p>
+</details>
+
+<div class="win">
+  <p class="label">Done when</p>
+  <p>The migration runs against your Postgres. You've inserted the Linen Shirt with 2 options and at least 4 variants. And you can say out loud: <em>"The product is what you browse, the variant is what you buy."</em></p>
+</div>
+
+<h2>Read next</h2>
+<p><strong>Primary source:</strong> <a href="https://docs.saleor.io/developer/products/overview">Saleor, "Product Overview"</a>. It's short, written for developers, and adds one idea this lesson skipped: <em>product types</em>, templates that decide which attributes a kind of product has (a shirt has sizes, a candle has scents).</p>
+
+<div class="ask">
+  <p class="label">Stuck or curious?</p>
+  <p>Ask me, your teacher in Claude Code. For example: <em>"How would I query all in-stock variants for a product page?"</em> or <em>"Should colour be its own product for images?"</em> I can also review your migration.</p>
+</div>
+
+<h3>Spaced recall · in 2–3 days</h3>
+<p>Without looking: sketch the five tables from memory and say where price, stock and description live.</p>
+
+<ol class="sources">
+  <li id="s1">Shopify, <a href="https://shopify.dev/docs/apps/build/product-merchandising/products-and-collections">About products and collections</a>.</li>
+  <li id="s2">Saleor, <a href="https://docs.saleor.io/developer/products/overview">Product Overview</a>.</li>
+  <li id="s3">Shopify, <a href="https://shopify.dev/docs/apps/build/product-merchandising/products-and-collections">About products and collections</a> (standalone variant, 2,048 limit). See also the <a href="https://shopify.dev/changelog/the-product-variant-limit-is-now-2048-for-all-merchants">variant limit changelog</a>.</li>
+  <li id="s4">Medusa, <a href="https://docs.medusajs.com/v1/references/entities/classes/ProductVariant">ProductVariant (v1)</a> and <a href="https://docs.medusajs.com/resources/references/product/models/ProductVariant">ProductVariant (current)</a>; <a href="https://docs.medusajs.com/resources/commerce-modules/product/links-to-other-modules">Product Module links to other modules</a> (variant → inventory item).</li>
+</ol>
+
+<nav class="lesson-nav">
+  <span>← Start of course</span>
+  <a href="../reference/catalog-data-model.html">Reference: Catalog data model →</a>
+</nav>
+
+</main>
+</body>
+</html>

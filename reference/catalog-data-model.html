@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalog Data Model</title>
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+<main>
+
+<p class="kicker">Reference · Catalog</p>
+<h1>Catalog data model</h1>
+<p class="subtitle">Product = what you browse. Variant = what you buy.</p>
+<div class="meta"><span>From: <a href="../lessons/0001-products-vs-variants.html">Lesson 0001</a></span><span>Updated 2026-10-25</span></div>
+
+<h2>The three concepts</h2>
+<table>
+  <thead><tr><th>Entity</th><th>Is</th><th>Holds</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Product</strong></td><td>The shared description of a family of items</td><td>title, description, handle (slug), brand, material, care, shared images</td></tr>
+    <tr><td><strong>Option</strong> + values</td><td>A choice the customer makes</td><td>name ('Size'), position; values ('S','M','L')</td></tr>
+    <tr><td><strong>Variant</strong></td><td>One purchasable combination of option values. The unit of sale</td><td>sku, barcode, price, stock, weight</td></tr>
+  </tbody>
+</table>
+
+<h2>Rules of thumb</h2>
+<ul>
+  <li><strong>The "differs per combination?" test:</strong> if a value can differ between Navy/M and White/L, it belongs on the variant.</li>
+  <li><strong>Cart lines, order lines and inventory always reference a variant</strong>, never a product.<sup class="cite"><a href="https://docs.saleor.io/developer/products/overview">Saleor</a></sup></li>
+  <li><strong>Every product has at least one variant.</strong> A product with no options gets one default variant.<sup class="cite"><a href="https://shopify.dev/docs/apps/build/product-merchandising/products-and-collections">Shopify</a></sup></li>
+  <li><strong>Variant count = product of option sizes</strong> (3 colours × 4 sizes = 12). It grows fast. Shopify caps it at 2,048 per product.</li>
+  <li><strong>No two variants of a product may share the same option values.</strong></li>
+</ul>
+
+<h2>Schema (Postgres)</h2>
+<pre><code>products               (id, handle UNIQUE, title, description, brand, created_at)
+product_options        (id, product_id → products, name, position, UNIQUE(product_id, name))
+product_option_values  (id, option_id → product_options, value, UNIQUE(option_id, value))
+product_variants       (id, product_id → products, sku UNIQUE,
+                        price_cents int CHECK ≥ 0, stock int CHECK ≥ 0)
+variant_option_values  (variant_id → variants, option_value_id → option_values,
+                        PK(variant_id, option_value_id))</code></pre>
+
+<h2>Known simplifications (to revisit)</h2>
+<table>
+  <thead><tr><th>Now</th><th>Later</th></tr></thead>
+  <tbody>
+    <tr><td><code>stock</code> column on variant</td><td>Separate inventory items per location, plus reservations</td></tr>
+    <tr><td><code>price_cents</code> on variant</td><td>Price lists by currency, region and sale</td></tr>
+    <tr><td><code>on delete cascade</code></td><td>Archive/soft-delete. Past orders must still resolve</td></tr>
+  </tbody>
+</table>
+
+<h2>Sources</h2>
+<ul class="sources">
+  <li><a href="https://shopify.dev/docs/apps/build/product-merchandising/products-and-collections">Shopify: About products and collections</a></li>
+  <li><a href="https://docs.saleor.io/developer/products/overview">Saleor: Product Overview</a></li>
+  <li><a href="https://docs.medusajs.com/resources/references/product/models/ProductVariant">Medusa: ProductVariant model</a></li>
+  <li><a href="https://www.postgresql.org/docs/current/ddl-constraints.html">PostgreSQL: Constraints</a></li>
+</ul>
+
+</main>
+</body>
+</html>
