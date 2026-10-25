@@ -8,4 +8,6 @@ The user's first migration (`assignments/db_migrations/0001-create-catalog.sql`)
 
 **Follow-up (same day, second attempt)**: they fixed the FK target, added `BEGIN/COMMIT`, used `ON DELETE RESTRICT` on product type, `handle`, identity columns and `position`, and correctly told product types apart from categories. Still missed: column-definition order (`stock NOT NULL INTEGER`), `NOT NULL` on one FK, a `CHECK` on price, `timestamptz`, and FK columns typed `integer` against `bigint` IDs. So the concepts have landed, but they don't yet apply them consistently to every column. A per-column checklist habit would help.
 
+**Third attempt**: runs cleanly. Passes 7 of the 8 bad-data tests, with all FK/ID types `bigint` and cascades correct. Two remaining issues: `created_at` lacks `NOT NULL`, and they introduced `price_cents DEFAULT 0`, which makes a forgotten price silently sell the item for free. That's a new insight to teach: a default is only safe when it's the right answer, otherwise it hides a mistake. Lesson 0001 is effectively complete.
+
 **Implications**: The school DB conflates *product types* (attribute templates) with *categories* (navigation tree). Also, its `order_items` cascade from variants, which would delete order history. Both are good hooks for the orders and categories lessons.

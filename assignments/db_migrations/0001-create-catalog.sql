@@ -26,7 +26,7 @@ BEGIN;
         name TEXT NOT NULL,
         description TEXT NOT NULL,
         product_type_id BIGINT NOT NULL,
-        created_at TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         FOREIGN KEY (product_type_id) REFERENCES product_types(id) ON DELETE RESTRICT
     );
 
@@ -35,9 +35,9 @@ BEGIN;
         id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         sku TEXT UNIQUE NOT NULL,
         product_id BIGINT NOT NULL,
-        price_cents INTEGER NOT NULL DEFAULT 0 CHECK (price_cents >= 0),
+        price_cents INTEGER NOT NULL CHECK (price_cents > 0),
         stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
-        created_at TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     );
 
