@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Database Migrations</title>
+<link rel="stylesheet" href="../../assets/course.css">
+</head>
+<body>
+<main>
+<p class="kicker">Note · concepts</p>
+<h1>Database migrations</h1>
+<p class="subtitle">A versioned file that changes your database's structure from one version to the next, saved in your repo and run in order.</p>
+<div class="meta"><span>Asked: "What does 'migration' mean, and why use it?"</span><span>Updated 2026-10-25</span></div>
+
+<h2>What a migration is</h2>
+<p>A <strong>migration</strong> is a file that changes your database's <em>structure</em> (its schema) from one version to the next. It's saved in your repo and run in order.</p>
+<blockquote>"A controlled set of changes that modify and evolve the structure of your database schema."
+<cite>Prisma, <a href="https://www.prisma.io/docs/orm/prisma-migrate/understanding-prisma-migrate/mental-model">Understanding Migrations</a></cite></blockquote>
+<p>For The Edit, it would look like this over time:</p>
+<pre><code>migrations/
+  0001_create_catalog.sql        <span class="c">← lesson 1: products, options, variants</span>
+  0002_create_carts.sql          <span class="c">← later: carts, cart_lines</span>
+  0003_add_compare_at_price.sql  <span class="c">← later: "was £60, now £45"</span></code></pre>
+<p>Each file describes only the <em>change</em>: <code>create table …</code>, <code>alter table … add column …</code>. To build the database, you run them one after another.</p>
+
+<h2>How the database knows what's already been run</h2>
+<p>Migration tools record which files have been applied, in a bookkeeping table inside the database itself. Prisma, for example, uses a <code>_prisma_migrations</code> table and treats your <code>migrations/</code> folder as "the source of truth for the history of your data model" (<a href="https://www.prisma.io/docs/orm/prisma-migrate/understanding-prisma-migrate/migration-histories">Prisma: Migration histories</a>).</p>
+<p>So when you run "migrate", the tool:</p>
+<ol>
+  <li>looks at which migrations the database has already recorded,</li>
+  <li>runs only the new ones, in order,</li>
+  <li>records them as done.</li>
+</ol>
+
+<h2>Why it matters</h2>
+<p>Without migrations, you'd change your database by typing SQL into a console. That works on your laptop, then goes wrong as soon as there's a second database. The Edit will have several:</p>
+<ul>
+  <li><strong>your local Postgres</strong> while you develop,</li>
+  <li><strong>the production database</strong> behind your live Vercel site,</li>
+  <li>possibly a <strong>preview database</strong> for Vercel preview deployments.</li>
+</ul>
+<p>With migrations, all of them get the same schema by running the same files in the same order. It's version control for your database structure, and it's reviewable in pull requests just like code.</p>
+<div class="win">
+  <p class="label">Why the lesson says "migration"</p>
+  <p>I want your schema to start out as a migration file, not as SQL you type once into a console. It's how professional teams work, and an interviewer will notice it in your repo.</p>
+</div>
+
+<h2>Two rules worth knowing early</h2>
+<ol>
+  <li><strong>Never edit a migration that has already been applied</strong> (especially in production). Write a new one that makes the further change. Prisma even warns if an applied migration has been edited.</li>
+  <li><strong>Migrations change structure, and they can affect data.</strong> For example, dropping a column deletes that data. Changing a live schema safely is a real skill. We'll touch on it when The Edit has real orders worth protecting.</li>
+</ol>
+
+<h2>In practice</h2>
+<p>A plain <code>0001_create_catalog.sql</code> file run with <code>psql</code> counts as a migration. A tool like Prisma Migrate or Drizzle Kit generates and tracks these files for you. Choosing one is a decision for when The Edit moves to Next.js.</p>
+
+<h2>Sources</h2>
+<ul class="sources">
+  <li><a href="https://www.prisma.io/docs/orm/prisma-migrate/understanding-prisma-migrate/mental-model">Prisma: Understanding Migrations (mental model)</a></li>
+  <li><a href="https://www.prisma.io/docs/orm/prisma-migrate/understanding-prisma-migrate/migration-histories">Prisma: Migration histories</a></li>
+</ul>
+
+<nav class="lesson-nav"><span>Related: <a href="../../lessons/0001-products-vs-variants.html">Lesson 0001 · Products vs Variants</a></span></nav>
+</main>
+</body>
+</html>
