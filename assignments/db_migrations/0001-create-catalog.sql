@@ -25,8 +25,8 @@ BEGIN;
         handle TEXT UNIQUE NOT NULL,
         name TEXT NOT NULL,
         description TEXT NOT NULL,
-        product_type_id INTEGER NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        product_type_id BIGINT NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
         FOREIGN KEY (product_type_id) REFERENCES product_types(id) ON DELETE RESTRICT
     );
 
@@ -34,17 +34,17 @@ BEGIN;
     CREATE TABLE product_variants(
         id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
         sku TEXT UNIQUE NOT NULL,
-        product_id INTEGER NOT NULL,
-        price_cents INTEGER NOT NULL,
-        stock NOT NULL INTEGER CHECK (stock >= 0),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        product_id BIGINT NOT NULL,
+        price_cents INTEGER NOT NULL DEFAULT 0 CHECK (price_cents >= 0),
+        stock INTEGER NOT NULL DEFAULT 0 CHECK (stock >= 0),
+        created_at TIMESTAMPTZ DEFAULT NOW(),
         FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
     );
 
     -- Create product options table
     CREATE TABLE product_options(
         id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-        product_id INTEGER NOT NULL,
+        product_id BIGINT NOT NULL,
         name TEXT NOT NULL,
         position INTEGER NOT NULL DEFAULT 0,
         UNIQUE (product_id, name),
@@ -54,7 +54,7 @@ BEGIN;
     -- Create product option values table
     CREATE TABLE product_option_values(
         id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-        product_option_id INTEGER,
+        product_option_id BIGINT NOT NULL,
         value TEXT NOT NULL,
         UNIQUE (product_option_id, value),
         FOREIGN KEY (product_option_id) REFERENCES product_options(id) ON DELETE CASCADE
@@ -62,8 +62,8 @@ BEGIN;
 
     -- Create variant option values table
     CREATE TABLE variant_option_values(
-        product_variant_id INTEGER,
-        product_option_value_id INTEGER,
+        product_variant_id BIGINT,
+        product_option_value_id BIGINT,
         PRIMARY KEY (product_variant_id, product_option_value_id),
         FOREIGN KEY (product_variant_id) REFERENCES product_variants(id) ON DELETE CASCADE,
         FOREIGN KEY (product_option_value_id) REFERENCES product_option_values(id) ON DELETE CASCADE
